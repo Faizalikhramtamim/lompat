@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Neon Runner - Game Lompat</title>
+<style>
+  * { box-sizing: border-box; touch-action: none; }
+  body { 
+    margin: 0; overflow: hidden; background: #0b0b14; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    height: 100vh; font-family: 'Segoe UI', sans-serif; color: white;
+  }
+  
+  /* Papan Skor Modern */
+  #scoreBoard { 
+    margin-bottom: 15px; font-size: 24px; font-weight: bold; 
+    text-shadow: 0 0 10px #4caf50; letter-spacing: 1px;
+  }
+  
+  /* Menu Kesulitan */
+  #menu { 
+    margin-bottom: 20px; font-size: 16px; color: #8a8a9e; 
+  }
+  select { 
+    background: #1a1a2e; color: #fff; border: 2px solid #4caf50; 
+    padding: 6px 12px; border-radius: 6px; font-weight: bold; outline: none;
+    cursor: pointer; box-shadow: 0 0 10px rgba(76, 175, 80, 0.2);
+  }
+  
+  /* Area Game */
+  #gameContainer { 
+    position: relative; width: 600px; height: 250px; 
+    background: linear-gradient(to bottom, #14142b, #0b0b14); 
+    border: 3px solid #1f1f3d; border-bottom: 6px solid #00f2fe; 
+    border-radius: 12px; overflow: hidden; 
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 242, 254, 0.1);
+    max-width: 95vw;
+  }
+  
+  /* Karakter Manusia Neon */
+  #player { 
+    position: absolute; bottom: 0; left: 60px; width: 34px; height: 45px; 
+    background: linear-gradient(45deg, #00f2fe, #4facfe); border-radius: 6px; 
+    box-shadow: 0 0 15px #00f2fe; transition: transform 0.1s;
+  }
+  
+  /* Rintangan Monster Laser */
+  #obstacle { 
+    position: absolute; bottom: 0; right: -35px; width: 30px; height: 50px; 
+    background: linear-gradient(to top, #ff0844, #ffb199); border-radius: 6px 6px 0 0; 
+    box-shadow: 0 0 15px #ff0844; 
+  }
+  
+  /* Overlay Game Over Modern */
+  #overlay { 
+    position: absolute; top:0; left:0; width:100%; height:100%; 
+    background: rgba(11, 11, 20, 0.9); display: none; 
+    flex-direction: column; align-items: center; justify-content: center; 
+    z-index: 10; backdrop-filter: blur(4px);
+  }
+  #overlay h2 { 
+    margin: 0 0 5px 0; font-size: 32px; color: #ff0844; 
+    text-shadow: 0 0 15px rgba(255, 8, 68, 0.5); 
+  }
+  #overlay p { margin: 0 0 20px 0; color: #8a8a9e; font-size: 18px; }
+  
+  /* Tombol Mulai Lagi */
+  button { 
+    padding: 12px 30px; font-size: 18px; background: linear-gradient(45deg, #00f2fe, #4facfe); 
+    color: #0b0b14; border: none; cursor: pointer; border-radius: 8px; 
+    font-weight: bold; box-shadow: 0 0 15px #00f2fe; transition: 0.2s;
+  }
+  button:active { transform: scale(0.95); box-shadow: 0 0 5px #00f2fe; }
+  
+  #controls { margin-top: 15px; text-align: center; color: #575775; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div id="scoreBoard">SKOR: <span id="score">0</span></div>
+<div id="menu">
+  MODE JALUR: 
+  <select id="diff">
+    <option value="6">Easy</option>
+    <option value="9" selected>Normal</option>
+    <option value="13">Hard</option>
+  </select>
+</div>
+
+<div id="gameContainer">
+  <div id="player"></div>
+  <div id="obstacle"></div>
+  <div id="overlay">
+    <h2>GAME OVER</h2>
+    <p>Skor Akhir: <span id="finalScore">0</span></p>
+    <button onclick="startGame()">MAIN LAGI</button>
+  </div>
+</div>
+
+<div id="controls">PC: Spasi | HP: Ketuk Layar Untuk Lompat</div>
+
+<script>
+const player = document.getElementById('player');
+const obstacle = document.getElementById('obstacle');
+const scoreEl = document.getElementById('score');
+const finalScoreEl = document.getElementById('finalScore');
+const gameContainer = document.getElementById('gameContainer');
+
+// Fisika & Variabel Game
+let score = 0;
+let gameActive = false;
+let animationId;
+
+let playerY = 0;
+let velocityY = 0;
+const gravity = 1.2;      // Kekuatan grafitasi menarik ke bawah
+const jumpStrength = 18;  // Kekuatan dorongan lompatan ke atas
+
+let obsRight = -35;
+let speed = 9;
+
+function jump() {
+  // Hanya bisa lompat kalau sedang menyentuh tanah (Y == 0) dan game aktif
+  if (playerY === 0 && gameActive) {
+    velocityY = jumpStrength;
+  }
+}
+
+function startGame() {
+  // Reset Variabel
+  score = 0;
+  playerY = 0;
+  velocityY = 0;
+  obsRight = -35;
+  gameActive = true;
+  
+  // Ambil Kecepatan dari Mode Kesulitan
+  speed = parseInt(document.getElementById('diff').value);
+  
+  // Reset Tampilan UI
+  player.style.bottom = '0px';
+  player.style.transform = 'scaleY(1)';
+  obstacle.style.right = '-35px';
+  document.getElementById('overlay').style.display = 'none';
+  
+  // Cegah double loop animasi
+  if (animationId) cancelAnimationFrame(animationId);
+  animate();
+}
+
+function animate() {
+  if (!gameActive) return;
+  
+  // 1. HITUNG SKOR
+  score++;
+  scoreEl.textContent = Math.floor(score / 5);
+  
+  // 2. LOGIKA FISIKA LOMPAT (GRAVITASI)
+  playerY += velocityY;     // Gerakkan posisi berdasarkan kecepatan vertikal
+  velocityY -= gravity;     // Tarik perlahan kecepatan ke bawah oleh gravitasi
+  
+  // Jika menyentuh/melebihi batas tanah bawah
+  if (playerY <= 0) {
+    playerY = 0;
+    velocityY = 0;
+  }
+  player.style.bottom = playerY + 'px';
+  
+  // Efek visual kemiringan saat melompat/turun (opsional tapi keren)
+  if (playerY > 0) {
+    player.style.transform = `rotate(${velocityY * 1.5}deg)`;
+  } else {
+    player.style.transform = `rotate(0deg)`;
+  }
+
+  // 3. GERAKKAN RINTANGAN
+  // Mengambil batas lebar responsif container secara real-time
+  const containerWidth = gameContainer.offsetWidth;
+  obsRight += speed;
+  
+  if (obsRight > containerWidth + 40) {
+    obsRight = -35; // Muncul kembali di kanan luar layar
+  }
+  obstacle.style.right = obsRight + 'px';
+
+  // 4. DETEKSI TABRAKAN (HITBOX PRESISI)
+  // Konversi koordinat kanan rintangan ke koordinat kiri (jarak dari sisi kiri container)
+  let obstacleLeft = containerWidth - obsRight - 30; 
+  let playerLeft = 60; // Posisi tetap CSS
+  let playerWidth = 34;
+  let obstacleWidth = 30;
+  let obstacleHeight = 50;
+
+  // Cek apakah posisi X berhimpitan dan posisi Y (tinggi pemain) lebih rendah dari rintangan
+  if (
+    playerLeft < obstacleLeft + obstacleWidth &&
+    playerLeft + playerWidth > obstacleLeft &&
+    playerY < obstacleHeight
+  ) {
+    // Kena tabrakan -> GAME OVER
+    gameActive = false;
+    finalScoreEl.textContent = Math.floor(score / 5);
+    document.getElementById('overlay').style.display = 'flex';
+    return;
+  }
+  
+  animationId = requestAnimationFrame(animate);
+}
+
+// Event Listener Kontrol (PC & HP)
+document.addEventListener('keydown', (e) => { 
+  if (e.code === 'Space' || e.key === ' ') {
+    e.preventDefault(); 
+    jump(); 
+  } 
+});
+document.addEventListener('touchstart', (e) => { 
+  // Biar select menu dropdown kesulitan tetap bisa diklik di HP
+  if (e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
+    e.preventDefault(); 
+    jump(); 
+  }
+}, { passive: false });
+
+// Jalankan game otomatis saat pertama kali dibuka
+startGame();
+</script>
+</body>
+</html>
